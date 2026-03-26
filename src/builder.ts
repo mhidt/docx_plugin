@@ -10,6 +10,7 @@ import getFormatting from "./formatting";
 import { renderImage } from "./images";
 import { formatSource } from "./sources";
 import { isImage } from "./utils";
+import { parseInlineFormatting } from "./parser";
 
 const EXCLUSIONS = [
 	"введение",
@@ -126,7 +127,7 @@ async function buildText(
 ): Promise<Paragraph> {
 	let data: any = { pageBreakBefore };
 	let image = await renderImage(text, adapter);
-	data.children = [image || new TextRun({ text })];
+	data.children = image ? [image] : parseInlineFormatting(text);
 	data.style = alignCenter || image ? "center" : "standard";
 	return new Paragraph(data);
 }
@@ -164,7 +165,7 @@ function buildNumbering(
 		instance,
 	};
 	return new Paragraph({
-		text,
+		children: parseInlineFormatting(text),
 		numbering,
 		style: instance === 0 ? "normal" : "standard",
 	});
