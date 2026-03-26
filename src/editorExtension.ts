@@ -1,111 +1,102 @@
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import {
-	EditorSelection,
-	SelectionRange,
-	Text,
-	Transaction,
-	TransactionSpec,
-} from "@codemirror/state";
+import { EditorSelection, Text, Transaction } from "@codemirror/state";
+
+const OPEN = "«";
+const CLOSE = "»";
+
+interface QuoteChange {
+	fromB: number;
+	toB: number;
+	selectedText: string;
+}
 
 export default EditorView.updateListener.of((update) => {
-	update.transactions.forEach((transaction) =>
-		handleUpdate(update, transaction)
-	);
+	for (const tr of update.transactions) {
+		const event = tr.annotation(Transaction.userEvent);
+		if (event === "input.type") onType(update, tr);
+		else if (event === "delete.backward") onDelete(update, tr);
+	}
 });
 
-function handleUpdate(update: ViewUpdate, transaction: Transaction) {
-	const eventType = transaction.annotation(Transaction.userEvent);
-	let isDelete = eventType === "delete.backward";
-	if (eventType !== "input.type" && !isDelete) return;
+function findQuoteChange(tr: Transaction): QuoteChange | null {
+	const oldDoc = tr.startState.doc;
+	let result: QuoteChange | null = null;
 
-	let doc = transaction.startState.doc,
-		from,
-		to;
-	transaction.changes.iterChanges((fromA, toA, fromB, toB, changeText) => {
-		if (
-			isDelete &&
-			doc.sliceString(fromA, toA) === "«" &&
-			findNextSybmol(doc, fromA) === "»"
-		) {
-			[from, to] = [fromB, toB];
-			return;
+	tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+		if (!inserted.toString().includes('"')) return;
+		result = {
+			fromB,
+			toB,
+			selectedText: toA > fromA ? oldDoc.sliceString(fromA, toA) : "",
+		};
+	});
+
+	return result;
+}
+
+function hasUnclosedQuote(doc: Text, pos: number): boolean {
+	const line = doc.lineAt(pos);
+	const before = doc.sliceString(line.from, pos);
+	let depth = 0;
+	for (const ch of before) {
+		if (ch === OPEN) depth++;
+		else if (ch === CLOSE) depth--;
+	}
+	return depth > 0;
+}
+
+function onType(update: ViewUpdate, tr: Transaction) {
+	const change = findQuoteChange(tr);
+	if (!change) return;
+
+	const { state } = update.view;
+	const { fromB, toB, selectedText } = change;
+
+	let insert: string;
+	let cursorPos: number;
+
+	if (selectedText) {
+		insert = `${OPEN}${selectedText}${CLOSE}`;
+		cursorPos = fromB + selectedText.length + 2;
+	} else {
+		const charAfter = state.doc.sliceString(toB, toB + 1);
+
+		if (charAfter === CLOSE) {
+			// Перепрыгнуть через существующую »
+			insert = "";
+			cursorPos = fromB + 1;
+		} else if (hasUnclosedQuote(state.doc, fromB)) {
+			// Закрыть незакрытую кавычку
+			insert = CLOSE;
+			cursorPos = fromB + 1;
+		} else {
+			// Открывающая: пара только если после — пусто/пробел
+			const pair = !charAfter || /\s/.test(charAfter);
+			insert = pair ? OPEN + CLOSE : OPEN;
+			cursorPos = fromB + 1;
 		}
+	}
 
-		if (!isDelete && changeText.toString().includes('"')) {
-			[from, to] = [fromB, toB];
+	update.view.dispatch(state.update({
+		changes: { from: fromB, to: toB, insert },
+		selection: EditorSelection.cursor(cursorPos),
+	}));
+}
+
+function onDelete(update: ViewUpdate, tr: Transaction) {
+	const oldDoc = tr.startState.doc;
+	let deletePos: number | null = null;
+
+	tr.changes.iterChanges((fromA, toA, fromB) => {
+		if (oldDoc.sliceString(fromA, toA) === OPEN &&
+			oldDoc.sliceString(toA, toA + 1) === CLOSE) {
+			deletePos = fromB;
 		}
 	});
-	if (!from || !to) return;
-	if (isDelete) {
-		let newTransaction = {
-			changes: {
-				from: from,
-				to: from + 1,
-				insert: "",
-			},
-		};
-		update.view.dispatch(updateState(update, newTransaction));
-	} else handleChanges(update, from, to);
-}
 
-function handleChanges(update: ViewUpdate, from: number, to: number) {
-	let ranges = update.view.state.selection.ranges;
-	if (ranges.length === 1 && ranges[0]?.empty) {
-		update.view.dispatch(addQuotes(update, from, to));
-		return;
-	}
+	if (deletePos == null) return;
 
-	let transactions: Transaction[] = [],
-		selections = [];
-	for (let range of ranges) {
-		let newTransaction = range.empty
-			? addQuotes(update, range.from - 1, range.to + 1)
-			: wrapQuotes(update, range);
-		transactions.push(newTransaction);
-		selections.push(
-			range.empty
-				? EditorSelection.cursor(range.from)
-				: EditorSelection.range(range.anchor, range.head)
-		);
-	}
-
-	update.view.dispatch(...transactions);
-	if (selections.length) {
-		let newSelections = {
-			selection: EditorSelection.create([...selections]),
-		};
-		update.view.dispatch(updateState(update, newSelections));
-	}
-}
-
-function updateState(update: ViewUpdate, transaction: TransactionSpec) {
-	return update.view.state.update(transaction);
-}
-
-function addQuotes(update: ViewUpdate, from: number, to: number): Transaction {
-	let transaction = {
-		changes: {
-			from: from,
-			to: to,
-			insert: "«»",
-		},
-		selection: EditorSelection.cursor(from + 1),
-	};
-	return updateState(update, transaction);
-}
-
-function wrapQuotes(update: ViewUpdate, range: SelectionRange) {
-	let text = update.view.state.doc.sliceString(range.from, range.to);
-	let transaction = {
-		changes: {
-			from: range.from - 1,
-			to: range.to + 1,
-			insert: `«${text}»`,
-		},
-	};
-	return updateState(update, transaction);
-}
-
-function findNextSybmol(doc: Text, from: number) {
-	return doc.sliceString(from + 1, from + 2);
+	update.view.dispatch(update.view.state.update({
+		changes: { from: deletePos, to: deletePos + 1, insert: "" },
+	}));
 }
