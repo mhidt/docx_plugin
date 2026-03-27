@@ -13,6 +13,7 @@ import {
 } from "./settings";
 import { exportFile } from "./export";
 import { switchCase } from "./utils";
+import { generate } from "./ai/generator";
 import editorExtension from "./editorExtension";
 
 export default class DocxPlugin extends Plugin {
@@ -99,6 +100,41 @@ export default class DocxPlugin extends Plugin {
 				return true;
 			},
 			hotkeys: [{ modifiers: ["Shift"], key: "f3" }],
+		});
+
+		// AI контекстное меню
+		this.registerEvent(
+			this.app.workspace.on("editor-menu", (menu, editor) => {
+				const selection = editor.getSelection();
+				if (!selection?.trim()) return;
+
+				menu.addItem((item) => {
+					item.setTitle("Сгенерировать работу")
+						.setIcon("bot")
+						.onClick(() => generate(editor, this.settings, "full"));
+				});
+
+				menu.addItem((item) => {
+					item.setTitle("Сгенерировать фрагмент")
+						.setIcon("pencil-line")
+						.onClick(() => generate(editor, this.settings, "partial"));
+				});
+			})
+		);
+
+		// AI команды
+		this.addCommand({
+			id: "ai-generate-full",
+			name: "Сгенерировать работу (AI)",
+			editorCallback: (editor) =>
+				generate(editor, this.settings, "full"),
+		});
+
+		this.addCommand({
+			id: "ai-generate-partial",
+			name: "Сгенерировать фрагмент (AI)",
+			editorCallback: (editor) =>
+				generate(editor, this.settings, "partial"),
 		});
 
 		this.addSettingTab(new SampleSettingTab(this.app, this));
