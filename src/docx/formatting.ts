@@ -8,7 +8,7 @@ import {
 	Paragraph,
 	TextRun,
 } from "docx";
-import { DocxPluginSettings } from "./settings";
+import { DocxPluginSettings } from "../settings";
 
 const ALIGNMENT_MAP: Record<string, AlignmentType> = {
 	center: AlignmentType.CENTER,

@@ -11,10 +11,10 @@ import {
 	DocxPluginSettings,
 	SampleSettingTab,
 } from "./settings";
-import { exportFile } from "./export";
-import { switchCase } from "./utils";
+import { exportFile } from "./docx/export";
+import { switchCase } from "./editor/utils";
 import { generate } from "./ai/generator";
-import editorExtension from "./editorExtension";
+import editorExtension from "./editor/editorExtension";
 
 export default class DocxPlugin extends Plugin {
 	settings: DocxPluginSettings;

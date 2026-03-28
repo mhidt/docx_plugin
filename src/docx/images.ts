@@ -1,6 +1,6 @@
 import { DataAdapter, Notice } from "obsidian";
 import { ImageRun, Paragraph } from "docx";
-import { isImage } from "./utils";
+import { isImage } from "../editor/utils";
 
 export async function renderImage(
 	text: string,
