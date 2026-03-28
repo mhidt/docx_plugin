@@ -19,8 +19,11 @@ export interface DocxPluginSettings {
 	paragraphBold: boolean;
 	paragraphAlignment: string;
 	paragraphIndent: boolean;
-	aiApiKey: string;
-	aiModel: string;
+	aiProvider: string;
+	openrouterApiKey: string;
+	openrouterModel: string;
+	groqApiKey: string;
+	groqModel: string;
 	aiSystemPromptFull: string;
 	aiSystemPromptPartial: string;
 }
@@ -41,10 +44,13 @@ export const DEFAULT_SETTINGS: DocxPluginSettings = {
 	paragraphBold: true,
 	paragraphAlignment: "justified",
 	paragraphIndent: true,
-	aiApiKey: "",
-	aiModel: "deepseek/deepseek-chat-v3-0324:free",
-	aiSystemPromptFull: "Ты — автор курсовых и дипломных работ. Пиши академическим языком на русском. Используй markdown-разметку: # для глав, ## для параграфов, --- для разрывов страниц. Структура: введение, главы с параграфами, заключение. Не используй жирный шрифт в заголовках.",
-	aiSystemPromptPartial: "Ты дописываешь часть академической работы на русском языке. Сохраняй стиль и логику предыдущего текста. Пиши только запрошенный фрагмент, без лишних пояснений. Используй markdown-разметку.",
+	aiProvider: "openrouter",
+	openrouterApiKey: "",
+	openrouterModel: "deepseek/deepseek-chat-v3-0324:free",
+	groqApiKey: "",
+	groqModel: "llama-3.3-70b-versatile",
+	aiSystemPromptFull: "Ты — автор курсовых и дипломных работ. Пиши академическим языком на русском. Используй markdown-разметку: # для глав, ## для параграфов, --- для разрывов страниц. Структура: введение, главы с параграфами, заключение. Не используй жирный шрифт в заголовках. ВАЖНО: сохраняй оригинальный регистр букв, не переводи текст в нижний регистр.",
+	aiSystemPromptPartial: "Ты дописываешь часть академической работы на русском языке. Сохраняй стиль и логику предыдущего текста. Пиши только запрошенный фрагмент, без лишних пояснений. Используй markdown-разметку. ВАЖНО: сохраняй оригинальный регистр букв, не переводи текст в нижний регистр.",
 }
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -132,31 +138,10 @@ export class SampleSettingTab extends PluginSettingTab {
 		// ── ИИ-генерация ──
 		containerEl.createEl("h3", {text: "ИИ генерация"});
 
-		new Setting(containerEl)
-			.setName("API ключ")
-			.setDesc("Можно получить на openrouter.ai/keys")
-			.addText(t => {
-				t.inputEl.type = "password";
-				t.setValue(this.plugin.settings.aiApiKey)
-				 .setPlaceholder("sk-or-...")
-				 .onChange(async (v) => {
-					this.plugin.settings.aiApiKey = v;
-					await this.plugin.saveSettings();
-				 });
-			});
+		this.addStringDropdown(containerEl, "Провайдер", "aiProvider",
+			{"openrouter": "OpenRouter", "groq": "Groq"});
 
-		new Setting(containerEl)
-			.setName("Модель")
-			.setDesc("ID модели OpenRouter")
-			.addText(t => t
-				.setValue(this.plugin.settings.aiModel)
-				.setPlaceholder("deepseek/deepseek-chat-v3-0324:free")
-				.onChange(async (v) => {
-					this.plugin.settings.aiModel = v;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
+				new Setting(containerEl)
 			.setName("Системный промт (полная генерация)")
 			.addTextArea(t => {
 				t.inputEl.rows = 5;
@@ -179,5 +164,57 @@ export class SampleSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				 });
 			});
+
+		// ── OpenRouter ──
+		containerEl.createEl("h4", {text: "OpenRouter"});
+
+		new Setting(containerEl)
+			.setName("API ключ")
+			.setDesc("Получить на openrouter.ai/keys")
+			.addText(t => {
+				t.inputEl.type = "password";
+				t.setValue(this.plugin.settings.openrouterApiKey)
+				 .setPlaceholder("sk-or-...")
+				 .onChange(async (v) => {
+					this.plugin.settings.openrouterApiKey = v;
+					await this.plugin.saveSettings();
+				 });
+			});
+
+		new Setting(containerEl)
+			.setName("Модель")
+			.addText(t => t
+				.setValue(this.plugin.settings.openrouterModel)
+				.setPlaceholder("deepseek/deepseek-chat-v3-0324:free")
+				.onChange(async (v) => {
+					this.plugin.settings.openrouterModel = v;
+					await this.plugin.saveSettings();
+				}));
+
+		// ── Groq ──
+		containerEl.createEl("h4", {text: "Groq"});
+
+		new Setting(containerEl)
+			.setName("API ключ")
+			.setDesc("Получить на console.groq.com/keys")
+			.addText(t => {
+				t.inputEl.type = "password";
+				t.setValue(this.plugin.settings.groqApiKey)
+				 .setPlaceholder("gsk_...")
+				 .onChange(async (v) => {
+					this.plugin.settings.groqApiKey = v;
+					await this.plugin.saveSettings();
+				 });
+			});
+
+		new Setting(containerEl)
+			.setName("Модель")
+			.addText(t => t
+				.setValue(this.plugin.settings.groqModel)
+				.setPlaceholder("llama-3.3-70b-versatile")
+				.onChange(async (v) => {
+					this.plugin.settings.groqModel = v;
+					await this.plugin.saveSettings();
+				}));
 	}
 }

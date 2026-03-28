@@ -1,6 +1,24 @@
-import { requestUrl, Notice } from "obsidian";
+import { Notice } from "obsidian";
 
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+type Provider = "openrouter" | "groq";
+
+const PROVIDERS: Record<Provider, { url: string; headers: (key: string) => Record<string, string> }> = {
+	openrouter: {
+		url: "https://openrouter.ai/api/v1/chat/completions",
+		headers: (key) => ({
+			Authorization: `Bearer ${key}`,
+			"Content-Type": "application/json",
+			"HTTP-Referer": "https://obsidian.md",
+		}),
+	},
+	groq: {
+		url: "https://api.groq.com/openai/v1/chat/completions",
+		headers: (key) => ({
+			Authorization: `Bearer ${key}`,
+			"Content-Type": "application/json",
+		}),
+	},
+};
 
 interface Message {
 	role: "system" | "user" | "assistant";
@@ -10,9 +28,11 @@ interface Message {
 interface ClientOptions {
 	apiKey: string;
 	model: string;
+	provider: Provider;
 	systemPrompt: string;
 	userMessage: string;
 	onChunk: (text: string) => void;
+	onReasoning?: (text: string) => void;
 	signal?: AbortSignal;
 }
 
@@ -32,13 +52,10 @@ export async function streamCompletion(options: ClientOptions): Promise<void> {
 
 	// requestUrl в Obsidian не поддерживает стриминг,
 	// используем fetch напрямую
-	const response = await fetch(API_URL, {
+	const providerConfig = PROVIDERS[options.provider];
+	const response = await fetch(providerConfig.url, {
 		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-			"HTTP-Referer": "https://obsidian.md",
-		},
+		headers: providerConfig.headers(apiKey),
 		body: JSON.stringify({
 			model,
 			messages,
@@ -75,8 +92,11 @@ export async function streamCompletion(options: ClientOptions): Promise<void> {
 
 			try {
 				const parsed = JSON.parse(data);
-				const delta = parsed.choices?.[0]?.delta?.content;
-				if (delta) onChunk(delta);
+				const delta = parsed.choices?.[0]?.delta;
+				if (delta?.reasoning && options.onReasoning) {
+					options.onReasoning(delta.reasoning);
+				}
+				if (delta?.content) onChunk(delta.content);
 			} catch {
 				// пропускаем невалидные строки
 			}
