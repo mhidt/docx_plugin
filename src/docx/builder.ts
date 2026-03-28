@@ -5,11 +5,11 @@ import {
 	TableOfContents,
 } from "docx";
 import { DataAdapter } from "obsidian";
-import { DocxPluginSettings } from "./settings";
+import { DocxPluginSettings } from "../settings";
 import getFormatting from "./formatting";
 import { renderImage } from "./images";
 import { formatSource } from "./sources";
-import { isImage } from "./utils";
+import { isImage } from "../editor/utils";
 import { parseInlineFormatting } from "./parser";
 
 const EXCLUSIONS = [

@@ -1,7 +1,7 @@
 import { App, MarkdownView, Notice } from "obsidian";
 import { Packer } from "docx";
 import { buildDocument } from "./builder";
-import { DocxPluginSettings } from "./settings";
+import { DocxPluginSettings } from "../settings";
 
 export async function exportFile(
 	app: App,
