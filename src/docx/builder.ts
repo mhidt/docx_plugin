@@ -68,7 +68,11 @@ export async function buildDocument(
 			line = line.replace(/#/g, "").trim();
 			let counter;
 			if (EXCLUSIONS.includes(line.toLowerCase())) {
-				return buildHeader(line, true);
+				if (isChapter) {
+					paragraphNumber = 0;
+					chapterNumber++;
+				}
+				return buildHeader(line, isChapter);
 			}
 
 			if (isChapter) {
@@ -86,9 +90,12 @@ export async function buildDocument(
 			return `${p1} [${sources.length}]`;
 		});
 
-		if (alignCenter) line = `Рисунок ${++pictureNumber}. ${line}`;
-		let paragraph = buildText(line, alignCenter, pageBreakBefore, adapter);
-		alignCenter = isImage(line);
+		let currentIsImage = isImage(line);
+		if (alignCenter && !currentIsImage) {
+			line = `Рисунок ${++pictureNumber}. ${line}`;
+		}
+		let paragraph = buildText(line, alignCenter || currentIsImage, pageBreakBefore, adapter);
+		alignCenter = currentIsImage;
 		pageBreakBefore = false;
 		return paragraph;
 	});
