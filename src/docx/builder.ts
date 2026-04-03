@@ -1,8 +1,4 @@
-import {
-	Document,
-	Paragraph,
-	TableOfContents,
-} from "docx";
+import { Document, Paragraph, TableOfContents } from "docx";
 import { buildTable } from "./tables";
 import { DataAdapter } from "obsidian";
 import { DocxPluginSettings } from "../settings";
@@ -22,7 +18,7 @@ const EXCLUSIONS = [
 export async function buildDocument(
 	markdown: string,
 	settings: DocxPluginSettings,
-	adapter: DataAdapter
+	adapter: DataAdapter,
 ): Promise<Document> {
 	let pageBreakBefore = false,
 		alignCenter = false,
@@ -37,11 +33,14 @@ export async function buildDocument(
 	let tableBuffer: string[] = [];
 
 	let promises = lines.map(async (line, lineIndex) => {
-		const isTableLine = line.trimStart().startsWith("|") && line.trimEnd().endsWith("|");
+		const isTableLine =
+			line.trimStart().startsWith("|") && line.trimEnd().endsWith("|");
 		if (isTableLine) {
 			tableBuffer.push(line);
 			const nextLine = lines[lineIndex + 1];
-			const nextIsTable = nextLine?.trimStart().startsWith("|") && nextLine?.trimEnd().endsWith("|");
+			const nextIsTable =
+				nextLine?.trimStart().startsWith("|") &&
+				nextLine?.trimEnd().endsWith("|");
 			if (!nextIsTable) {
 				const table = buildTable(tableBuffer);
 				tableBuffer = [];
@@ -55,7 +54,7 @@ export async function buildDocument(
 		}
 		if (codeStyle) return buildCode(line);
 
-		if (!line.startsWith("#") && line.match(/\t*\d+?\. .+/)) {
+		if (!line.startsWith("#") && line.match(/^\t*\d+\. .+/)) {
 			let item = line.split(". ", 2)[1] || "";
 			const nestingLevel = (line.match(/\t/g) || []).length;
 			numberedLists.last()?.push(item);
@@ -93,7 +92,11 @@ export async function buildDocument(
 				counter = ++chapterNumber;
 				pageBreakBefore = false;
 			} else {
-				counter = `${chapterNumber}.${++paragraphNumber}`;
+				paragraphNumber++;
+				counter =
+					chapterNumber == 0
+						? paragraphNumber
+						: `${chapterNumber}.${paragraphNumber}`;
 			}
 			return buildHeader(`${counter}. ${line}`, isChapter);
 		}
@@ -107,7 +110,12 @@ export async function buildDocument(
 		if (alignCenter && !currentIsImage) {
 			line = `Рисунок ${++pictureNumber}. ${line}`;
 		}
-		let paragraph = buildText(line, alignCenter || currentIsImage, pageBreakBefore, adapter);
+		let paragraph = buildText(
+			line,
+			alignCenter || currentIsImage,
+			pageBreakBefore,
+			adapter,
+		);
 		alignCenter = currentIsImage;
 		pageBreakBefore = false;
 		return paragraph;
@@ -143,7 +151,7 @@ async function buildText(
 	text: string,
 	alignCenter: boolean,
 	pageBreakBefore: boolean,
-	adapter: DataAdapter
+	adapter: DataAdapter,
 ): Promise<Paragraph> {
 	let data: any = { pageBreakBefore };
 	let image = await renderImage(text, adapter);
@@ -164,9 +172,7 @@ function buildHeader(text: string, isChapter: boolean): Paragraph {
 	});
 }
 
-async function buildSources(
-	sources: Promise<string>[]
-): Promise<Paragraph[]> {
+async function buildSources(sources: Promise<string>[]): Promise<Paragraph[]> {
 	let items = await Promise.all(sources);
 	let paragraphs = items.map((item) => buildNumbering(item, 0));
 	let header = buildHeader("Список литературы", true);
@@ -176,7 +182,7 @@ async function buildSources(
 function buildNumbering(
 	text: string,
 	instance: number,
-	level: number = 0
+	level: number = 0,
 ): Paragraph {
 	let isBullets = instance < 0;
 	let numbering = {
