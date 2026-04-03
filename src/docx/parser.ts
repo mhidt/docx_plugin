@@ -23,8 +23,8 @@ const PATTERNS: { regex: RegExp; style: RunStyle }[] = [
 	{ regex: /==(.+?)==/, style: { highlight: true } },
 ];
 
-export function parseInlineFormatting(text: string): TextRun[] {
-	const tokens = tokenize(text, {});
+export function parseInlineFormatting(text: string, baseStyle: RunStyle = {}): TextRun[] {
+	const tokens = tokenize(text, baseStyle);
 	return tokens.map(
 		(t) =>
 			new TextRun({

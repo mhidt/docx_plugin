@@ -6,8 +6,16 @@ import {
 	WidthType,
 	BorderStyle,
 	AlignmentType,
+	convertMillimetersToTwip,
 } from "docx";
 import { parseInlineFormatting } from "./parser";
+
+const CELL_MARGIN = {
+	top: convertMillimetersToTwip(1),
+	bottom: convertMillimetersToTwip(1),
+	left: convertMillimetersToTwip(2.5),
+	right: convertMillimetersToTwip(2.5),
+};
 
 const BORDER = {
 	style: BorderStyle.SINGLE,
@@ -34,14 +42,19 @@ export function buildTable(lines: string[]): Table {
 	const colCount = Math.max(...parsed.map((r) => r.length));
 
 	const rows = parsed.map((cells, rowIndex) => {
+		const isHeader = rowIndex === 0;
 		const tableCells = Array.from({ length: colCount }, (_, i) => {
 			const text = cells[i] || "";
+			const runs = parseInlineFormatting(text, isHeader ? { bold: true } : {});
+
 			return new TableCell({
 				borders: CELL_BORDERS,
+				margins: CELL_MARGIN,
 				children: [
 					new Paragraph({
-						children: parseInlineFormatting(text),
-						alignment: AlignmentType.CENTER,
+						children: runs,
+						alignment: AlignmentType.LEFT,
+						spacing: { line: 240 },
 					}),
 				],
 			});
