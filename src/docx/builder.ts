@@ -1,7 +1,6 @@
 import {
 	Document,
 	Paragraph,
-	TextRun,
 	TableOfContents,
 } from "docx";
 import { buildTable } from "./tables";
@@ -38,11 +37,9 @@ export async function buildDocument(
 	let tableBuffer: string[] = [];
 
 	let promises = lines.map(async (line, lineIndex) => {
-		// Обработка таблиц
 		const isTableLine = line.trimStart().startsWith("|") && line.trimEnd().endsWith("|");
 		if (isTableLine) {
 			tableBuffer.push(line);
-			// Если следующая строка — не таблица или конец файла, билдим таблицу
 			const nextLine = lines[lineIndex + 1];
 			const nextIsTable = nextLine?.trimStart().startsWith("|") && nextLine?.trimEnd().endsWith("|");
 			if (!nextIsTable) {
@@ -50,7 +47,7 @@ export async function buildDocument(
 				tableBuffer = [];
 				return table;
 			}
-			return; // ждём конец таблицы
+			return;
 		}
 		if (line.startsWith("```")) {
 			codeStyle = !codeStyle;
@@ -58,7 +55,7 @@ export async function buildDocument(
 		}
 		if (codeStyle) return buildCode(line);
 
-		if (line.match(/\t*\d+?\. .+/)) {
+		if (!line.startsWith("#") && line.match(/\t*\d+?\. .+/)) {
 			let item = line.split(". ", 2)[1] || "";
 			const nestingLevel = (line.match(/\t/g) || []).length;
 			numberedLists.last()?.push(item);
@@ -86,12 +83,10 @@ export async function buildDocument(
 			line = line.replace(/#/g, "").trim();
 			let counter;
 			if (EXCLUSIONS.includes(line.toLowerCase())) {
-				if (isChapter) {
-					paragraphNumber = 0;
-					chapterNumber++;
-				}
 				return buildHeader(line, isChapter);
 			}
+
+			line = line.replace(/^\d+(\.\d+)*\.?\s+/, "");
 
 			if (isChapter) {
 				paragraphNumber = 0;
