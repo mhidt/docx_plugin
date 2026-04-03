@@ -4,6 +4,7 @@ import {
 	TextRun,
 	TableOfContents,
 } from "docx";
+import { buildTable } from "./tables";
 import { DataAdapter } from "obsidian";
 import { DocxPluginSettings } from "../settings";
 import getFormatting from "./formatting";
@@ -33,7 +34,24 @@ export async function buildDocument(
 		sources: Promise<string>[] = [],
 		numberedLists: string[][] = [[]];
 
-	let promises = markdown.split("\n").map(async (line) => {
+	const lines = markdown.split("\n");
+	let tableBuffer: string[] = [];
+
+	let promises = lines.map(async (line, lineIndex) => {
+		// Обработка таблиц
+		const isTableLine = line.trimStart().startsWith("|") && line.trimEnd().endsWith("|");
+		if (isTableLine) {
+			tableBuffer.push(line);
+			// Если следующая строка — не таблица или конец файла, билдим таблицу
+			const nextLine = lines[lineIndex + 1];
+			const nextIsTable = nextLine?.trimStart().startsWith("|") && nextLine?.trimEnd().endsWith("|");
+			if (!nextIsTable) {
+				const table = buildTable(tableBuffer);
+				tableBuffer = [];
+				return table;
+			}
+			return; // ждём конец таблицы
+		}
 		if (line.startsWith("```")) {
 			codeStyle = !codeStyle;
 			return;
